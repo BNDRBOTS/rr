@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- viewport meta with maximum-scale and user-scalable=no ensures consistent mobile behavior -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#0b0508">
+    <title>ROGUE RITA: THE FINAL BATTLE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* ==================================================
+           RESET & BASE – same as original roguerita.html
+        ================================================== */
+        *, *::before, *::after {
+            margin: 0; padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        :focus-visible { outline: 3px solid #9ef7ff; outline-offset: 3px; }
+        html, body { height: 100%; }
+        html { overscroll-behavior: none; }
+
+        body {
+            min-height: 100dvh;
+            background: radial-gradient(circle at 30% 10%, #1a0c0f, #0b0508);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Space Grotesk', 'Courier New', monospace;
+            padding: max(12px, env(safe-area-inset-top))
+                     max(12px, env(safe-area-inset-right))
+                     max(12px, env(safe-area-inset-bottom))
+                     max(12px, env(safe-area-inset-left));
+            overscroll-behavior: none;
+            touch-action: none;
+            user-select: none;
+        }
+
+        /* ==================================================
+           GAME WRAPPER – flex layout (original)
+        ================================================== */
+        .game-wrapper {
+            position: relative;
+            width: min(1200px, 98vw);
+            height: 90dvh; 
+            max-height: calc(100dvh - max(24px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+            background: #0f0b0d;
+            border: 3px solid #fcee9f;
+            border-radius: 42px 12px 42px 12px;
+            overflow: hidden;
+            container-type: inline-size;
+            container-name: game;
+            display: flex;
+            flex-direction: column;
+        }
+
+        @supports (aspect-ratio: 1/1) {
+            .game-wrapper {
+                height: auto;
+                aspect-ratio: 16 / 9;
+            }
+        }
+
+        /* Animated glow ring (original) */
+        .game-wrapper::before {
+            content: "";
+            position: absolute;
+            inset: -4px;
+            border-radius: 44px 14px 44px 14px;
+            background: conic-gradient(from 0deg, #ff4d6d, #ea00ff, #b3fffc, #ffbe3f, #ff4d6d);
+            opacity: 0.45;
+            pointer-events: none;
+            z-index: 0;
+            animation: glowPulse 6s linear infinite alternate;
+        }
+        @keyframes glowPulse {
+            0%   { opacity: 0.35; }
+            50%  { opacity: 0.65; }
+            100% { opacity: 0.35; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .game-wrapper::before { animation: none; opacity: 0.4; }
+        }
+
+        /* ==================================================
+           HUD BARS (original)
+        ================================================== */
+        .hud-top, .hud-bottom {
+            position: relative;
+            z-index: 20;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .hud-top {
+            padding: max(10px, env(safe-area-inset-top,    0px) + 4px) 18px 8px 18px;
+            background: #0d0a0cf8;
+            border-bottom: 2px solid #fcee9f50;
+            box-shadow: inset 0 -1px 8px #ff4d6d10, 0 1px 0 #5200a330;
+        }
+        .hud-bottom {
+            padding: 8px 18px max(10px, env(safe-area-inset-bottom, 0px) + 4px) 18px;
+            background: #0d0a0cf8;
+            border-top: 2px solid #fcee9f50;
+            box-shadow: inset 0 1px 8px #ea00ff10, 0 -1px 0 #5200a330;
+        }
+
+        /* ==================================================
+           CANVAS AREA
+        ================================================== */
+        .canvas-area {
+            position: relative;
+            flex: 1;
+            min-height: 0;
+            width: 100%;
+            background: #211a1c;
+            isolation: isolate;
+            z-index: 1;
+            touch-action: none;
+        }
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #191113;
+            cursor: crosshair;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            touch-action: none;
+        }
+        /* Scanline overlay (original) */
+        .canvas-area::after {
+            content: "";
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0,0,0,0.08) 0px, rgba(255,255,255,0.015) 2px,
+                transparent 3px, transparent 5px
+            );
+            pointer-events: none;
+            z-index: 5;
+            mix-blend-mode: overlay;
+            opacity: 0.22;
+        }
+        /* Grain overlay (original) */
+        .canvas-area::before {
+            content: "";
+            position: absolute; inset: 0;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="1" stitchTiles="stitch"/><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.08 0"/></filter><rect width="200" height="200" filter="url(%23n)" opacity="0.1"/></svg>');
+            pointer-events: none;
+            opacity: 0.28;
+            mix-blend-mode: multiply;
+            z-index: 4;
+        }
+
+        /* ==================================================
+           STATS PANEL (original style inside top bar)
+        ================================================== */
+        .stats-panel {
+            display: flex;
+            gap: 18px;
+            background: #1d1418f0;
+            padding: 5px 18px 5px 14px;
+            border-radius: 40px 6px 40px 6px;
+            border: 2px solid #ffb77c;
+            box-shadow: 4px 4px 0 #5200a3, inset 0 0 0 1px #ffd78c;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+            transform: rotate(-0.3deg);
+            color: #fffbe3;
+            text-shadow: 1px 1px 0 #b2002d;
+            font-size: 0.84rem;
+            flex-shrink: 1;
+            min-width: 0;
+        }
+        @supports (backdrop-filter: blur(1px)) {
+            .stats-panel {
+                background: #1d1418ee;
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+            }
+        }
+        .stats-panel > div {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .stats-panel span {
+            color: #feffb0;
+            background: #1f0625;
+            padding: 2px 11px;
+            border-radius: 30px 3px 30px 3px;
+            border: 1px solid #aaffb0;
+            box-shadow: inset 0 -2px 0 #ae7eff;
+            font-size: 1.1rem;
+            min-width: 54px;
+            text-align: center;
+        }
+
+        /* ==================================================
+           GAME TAGLINE (original)
+        ================================================== */
+        .game-tagline {
+            flex: 1;
+            text-align: center;
+            background: #1e0116f0;
+            border: 2px solid #ffe7a3;
+            padding: 5px 16px;
+            border-radius: 60px 2px 60px 2px;
+            color: #f6c3ff;
+            font-weight: 700;
+            font-size: 0.85rem;
+            box-shadow: 4px 4px 0 #ff4295;
+            transform: rotate(0.4deg);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        @supports (backdrop-filter: blur(1px)) {
+            .game-tagline {
+                background: #1e0116cc;
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+            }
+        }
+        .game-tagline span { color: #9ef7ff; font-weight: 300; margin-left: 6px; }
+
+        /* ==================================================
+           CONTROLS HINT (original)
+        ================================================== */
+        .controls-hint {
+            flex: 1;
+            color: #a9d6ff;
+            padding: 5px 14px 5px 12px;
+            border-radius: 20px 2px 20px 2px;
+            border: 1px solid cyan;
+            font-size: 0.82rem;
+            font-weight: 500;
+            box-shadow: 2px 2px 0 deeppink;
+            background: #0c0822cc;
+            min-height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        @supports (backdrop-filter: blur(1px)) {
+            .controls-hint {
+                background: #0c0822aa;
+                backdrop-filter: blur(4px);
+                -webkit-backdrop-filter: blur(4px);
+            }
+        }
+
+        /* ==================================================
+           SOUND TOGGLE (original – kept for appearance, but non‑functional)
+        ================================================== */
+        .sound-toggle {
+            flex-shrink: 0;
+            min-width: 88px;
+            min-height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border: 2px solid #9ef7ff;
+            border-radius: 14px 3px 14px 3px;
+            background: #08111de8;
+            color: #f4ffb5;
+            font: inherit;
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            box-shadow: 3px 3px 0 #6533b4;
+            cursor: default; /* no functionality */
+            touch-action: manipulation;
+        }
+        .sound-toggle::before { content: "\1F50A"; font-size: 0.9rem; line-height: 1; }
+        /* inactive style to indicate it does nothing */
+        .sound-toggle {
+            opacity: 0.6;
+            filter: grayscale(0.5);
+        }
+
+        /* ==================================================
+           PLAYER NAME BADGE (original)
+        ================================================== */
+        .player-name {
+            flex-shrink: 0;
+            font-size: 1.35rem;
+            font-weight: 900;
+            color: #f4ffb5;
+            padding: 4px 22px 4px 18px;
+            border-radius: 80px 0 80px 0;
+            border: 2px solid #ffcc66;
+            transform: skewX(-6deg);
+            text-shadow: 3px 3px 0 #b83b3b;
+            letter-spacing: 3px;
+            box-shadow: -6px 6px 0 #6533b4;
+            white-space: nowrap;
+            background: #00000085;
+        }
+        @supports (backdrop-filter: blur(1px)) {
+            .player-name { background: #00000060; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+        }
+        .player-name::before { content: "\26A1"; font-size: 1.1rem; margin-right: 8px; filter: drop-shadow(0 0 6px cyan); }
+        .player-name::after  { content: "\26A1"; font-size: 1.1rem; margin-left:  8px; filter: drop-shadow(0 0 6px magenta); }
+
+        /* ==================================================
+           MOBILE LAYOUT (original media queries)
+        ================================================== */
+        @media (max-width: 768px) {
+            body { padding: 0; align-items: stretch; justify-content: stretch; }
+
+            .game-wrapper {
+                width: 100%;
+                height: 100vh; height: 100dvh;
+                max-height: none;
+                aspect-ratio: unset;
+                border-radius: 0;
+                border-left: none; border-right: none;
+            }
+            .game-wrapper::before { display: none; }
+
+            .hud-top    { padding: max(8px, env(safe-area-inset-top,    0px) + 4px) 10px 6px 10px; gap: 8px; }
+            .hud-bottom { padding: 6px 10px max(8px, env(safe-area-inset-bottom, 0px) + 4px) 10px; gap: 8px; }
+
+            .stats-panel {
+                gap: 10px; padding: 4px 12px 4px 10px;
+                font-size: 0.75rem; transform: none;
+                border-radius: 20px 3px 20px 3px;
+                box-shadow: 3px 3px 0 #5200a3, inset 0 0 0 1px #ffd78c;
+            }
+            .stats-panel > div { gap: 5px; }
+            .stats-panel span  { font-size: 0.9rem; min-width: 34px; padding: 1px 8px; }
+
+            .game-tagline { display: none; }
+
+            .sound-toggle { min-width: 72px; min-height: 34px; padding: 4px 10px; font-size: 0.7rem; box-shadow: 2px 2px 0 #6533b4; }
+
+            .controls-hint { font-size: 0.72rem; padding: 4px 10px; min-height: 26px; }
+
+            .player-name {
+                font-size: 1.0rem; padding: 3px 14px 3px 11px;
+                letter-spacing: 2px; box-shadow: -3px 4px 0 #6533b4;
+            }
+            .player-name::before, .player-name::after { font-size: 0.85rem; margin-right: 4px; margin-left: 4px; }
+        }
+
+        @media (min-width: 541px) and (max-width: 768px) {
+            .game-tagline {
+                display: block; font-size: 0.7rem; padding: 4px 12px;
+                letter-spacing: 0.8px; transform: none; box-shadow: 2px 2px 0 #ff4295; white-space: nowrap;
+            }
+            .stats-panel { gap: 12px; font-size: 0.78rem; }
+        }
+
+        @media (max-width: 900px) and (orientation: landscape) {
+            .hud-top    { padding-top: max(4px, env(safe-area-inset-top, 0px) + 2px); padding-bottom: 4px; gap: 8px; }
+            .hud-bottom { padding-top: 4px; padding-bottom: max(4px, env(safe-area-inset-bottom, 0px) + 2px); gap: 8px; }
+            .stats-panel { gap: 8px; padding: 2px 10px; font-size: 0.68rem; }
+            .stats-panel span { font-size: 0.8rem; min-width: 26px; padding: 1px 5px; }
+            .game-tagline { font-size: 0.66rem; padding: 3px 10px; }
+            .sound-toggle { min-height: 28px; min-width: 62px; padding: 2px 8px; font-size: 0.64rem; box-shadow: 2px 2px 0 #6533b4; }
+            .controls-hint { font-size: 0.64rem; padding: 2px 8px; min-height: 22px; }
+            .player-name { font-size: 0.84rem; padding: 2px 12px; }
+            .player-name::before, .player-name::after { font-size: 0.74rem; margin-right: 3px; margin-left: 3px; }
+        }
+
+        @media (max-width: 480px) {
+            .stats-panel { gap: 6px; font-size: 0.7rem; padding: 3px 9px 3px 8px; }
+            .stats-panel span { font-size: 0.86rem; min-width: 28px; }
+            .player-name { font-size: 0.92rem; }
+            .sound-toggle { min-width: 66px; font-size: 0.7rem; }
+        }
+
+        @container game (max-width: 400px) {
+            .stats-panel { font-size: 0.7rem; gap: 4px; padding: 4px 8px; }
+            .stats-panel span { font-size: 0.78rem; min-width: 26px; }
+            .game-tagline { font-size: 0.7rem; }
+            .player-name { font-size: 0.86rem; }
+            .controls-hint { font-size: 0.7rem; }
+            .sound-toggle { min-width: 66px; font-size: 0.68rem; padding: 5px; }
+        }
+    
+        .canvas-area { min-height: 180px; }
+
+        .sound-toggle {
+            appearance: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+            opacity: 1;
+            filter: none;
+        }
+        .sound-toggle[data-muted="true"] {
+            opacity: 0.6;
+            filter: grayscale(0.5);
+        }
+        .sound-toggle:active {
+            transform: translate(1px, 1px);
+            box-shadow: 2px 2px 0 #6533b4;
+        }
+        .sound-toggle:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+            filter: grayscale(1);
+        }
+
+        @media (max-height: 560px) {
+            .hud-top {
+                padding-top: max(4px, env(safe-area-inset-top, 0px) + 2px);
+                padding-bottom: 4px;
+            }
+            .hud-bottom {
+                padding-top: 4px;
+                padding-bottom: max(4px, env(safe-area-inset-bottom, 0px) + 2px);
+            }
+            .game-tagline { display: none; }
+            .stats-panel {
+                gap: 8px;
+                padding: 3px 10px 3px 9px;
+                font-size: 0.68rem;
+                transform: none;
+            }
+            .stats-panel span {
+                min-width: 26px;
+                font-size: 0.82rem;
+                padding: 1px 6px;
+            }
+            .controls-hint {
+                font-size: 0.66rem;
+                min-height: 22px;
+                padding: 3px 8px;
+            }
+            .player-name {
+                font-size: 0.82rem;
+                padding: 2px 10px;
+                box-shadow: -2px 3px 0 #6533b4;
+            }
+            .player-name::before,
+            .player-name::after {
+                font-size: 0.72rem;
+                margin-right: 3px;
+                margin-left: 3px;
+            }
+            .sound-toggle {
+                min-height: 28px;
+                min-width: 62px;
+                padding: 2px 8px;
+                font-size: 0.64rem;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="game-wrapper" role="main" aria-label="Rogue Rita game arena">
+
+    <!-- TOP HUD BAR: original structure unchanged -->
+    <div class="hud-top">
+        <div class="stats-panel" role="status" aria-live="polite" aria-atomic="false">
+            <div aria-label="Score">🔥 SCORE <span id="scoreDisplay">0</span></div>
+            <div aria-label="Wave">⚡ WAVE <span id="waveDisplay">1</span></div>
+            <div aria-label="Health">💀 HEALTH <span id="healthDisplay">5</span></div>
+        </div>
+        <div class="game-tagline" aria-hidden="true">
+            ROGUE RESONANCE <span>// 2026</span>
+        </div>
+        <!-- sound toggle kept for appearance but non-functional (working copy has no sound) -->
+        <button type="button" class="sound-toggle" id="soundToggle" aria-label="Sound on" data-muted="false">SFX</button>
+    </div>
+
+    <!-- GAME CANVAS -->
+    <div class="canvas-area">
+        <canvas
+            id="gameCanvas"
+            role="img"
+            aria-label="Rogue Rita: The Final Battle — action game canvas"
+            tabindex="0"
+        ></canvas>
+    </div>
+
+    <!-- BOTTOM HUD BAR -->
+    <div class="hud-bottom">
+        <div class="controls-hint" id="controlHint" aria-live="polite">
+            [ WASD + MOUSE ]  ·  TAP/DRAG TO FIRE
+        </div>
+        <div class="player-name" aria-hidden="true">RITA</div>
+    </div>
+
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const hintEl = document.getElementById('controlHint');
+    const soundToggle = document.getElementById('soundToggle');
+    const scoreEl = document.getElementById('scoreDisplay');
+    const waveEl = document.getElementById('waveDisplay');
+    const hpEl = document.getElementById('healthDisplay');
+
+    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    if (isTouchDevice) {
+        hintEl.textContent = 'TAP/DRAG TO FIRE  ·  (NO MOVEMENT)';
+    }
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext || null;
+
+    let player = null;
+    let enemies = [];
+    let projectiles = [];
+    let particles = [];
+
+    let score = 0;
+    let wave = 1;
+    let gameActive = true;
+    let gameOver = false;
+    let frame = 0;
+    let animationFrame = null;
+    let fireInterval = null;
+    let gameOverSfxPlayed = false;
+
+    let audioCtx = null;
+    let masterGain = null;
+    let noiseBuffer = null;
+    let soundEnabled = true;
+    let activeFirePointerId = null;
+
+    const keys = { w: false, a: false, s: false, d: false };
+    const mouse = { x: 0, y: 0, pressed: false };
+
+    function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+    }
+
+    function updateSoundToggle() {
+        if (!soundToggle) return;
+        if (!AudioContextClass) {
+            soundToggle.textContent = 'SFX';
+            soundToggle.dataset.muted = 'true';
+            soundToggle.disabled = true;
+            soundToggle.setAttribute('aria-label', 'Sound unavailable');
+            return;
+        }
+        soundToggle.disabled = false;
+        soundToggle.dataset.muted = soundEnabled ? 'false' : 'true';
+        soundToggle.textContent = 'SFX';
+        soundToggle.setAttribute('aria-label', soundEnabled ? 'Sound on' : 'Sound off');
+    }
+
+    function resizeCanvas() {
+        const container = canvas.parentElement;
+        if (!container) return;
+
+        const rect = container.getBoundingClientRect();
+        const newWidth = Math.max(1, Math.round(rect.width));
+        const newHeight = Math.max(1, Math.round(rect.height));
+
+        if (canvas.width === newWidth && canvas.height === newHeight) return;
+
+        const prevWidth = canvas.width || newWidth;
+        const prevHeight = canvas.height || newHeight;
+        const scaleX = newWidth / prevWidth;
+        const scaleY = newHeight / prevHeight;
+
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+
+        if (player) {
+            player.x = clamp(player.x * scaleX, player.r + 5, newWidth - player.r - 5);
+            player.y = clamp(player.y * scaleY, player.r + 5, newHeight - player.r - 5);
+        }
+
+        if (enemies.length) {
+            enemies.forEach((enemy) => {
+                enemy.x *= scaleX;
+                enemy.y *= scaleY;
+            });
+        }
+
+        if (projectiles.length) {
+            projectiles.forEach((projectile) => {
+                projectile.x *= scaleX;
+                projectile.y *= scaleY;
+            });
+        }
+
+        if (particles.length) {
+            particles.forEach((particle) => {
+                particle.x *= scaleX;
+                particle.y *= scaleY;
+            });
+        }
+
+        const nextMouseX = Number.isFinite(mouse.x) ? mouse.x * scaleX : newWidth / 2;
+        const nextMouseY = Number.isFinite(mouse.y) ? mouse.y * scaleY : newHeight / 2;
+        mouse.x = clamp(nextMouseX, 0, newWidth);
+        mouse.y = clamp(nextMouseY, 0, newHeight);
+    }
+
+    window.addEventListener('resize', resizeCanvas, { passive: true });
+    window.addEventListener('orientationchange', resizeCanvas, { passive: true });
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', resizeCanvas, { passive: true });
+    }
+    resizeCanvas();
+
+    player = {
+        x: canvas.width / 2,
+        y: canvas.height / 2,
+        r: 20,
+        health: 5,
+        maxHealth: 5,
+        invincible: 0,
+        speed: 4.5
+    };
+
+    mouse.x = player.x;
+    mouse.y = player.y;
+    updateSoundToggle();
+
+    function createAudioEngine() {
+        if (!AudioContextClass || audioCtx) return;
+
+        audioCtx = new AudioContextClass();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0.18;
+
+        const compressor = audioCtx.createDynamicsCompressor();
+        compressor.threshold.value = -28;
+        compressor.knee.value = 24;
+        compressor.ratio.value = 12;
+        compressor.attack.value = 0.003;
+        compressor.release.value = 0.2;
+
+        masterGain.connect(compressor);
+        compressor.connect(audioCtx.destination);
+
+        const length = Math.floor(audioCtx.sampleRate * 0.18);
+        noiseBuffer = audioCtx.createBuffer(1, length, audioCtx.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < length; i++) {
+            data[i] = (Math.random() * 2 - 1) * (1 - (i / length));
+        }
+    }
+
+    async function ensureAudioReady() {
+        if (!soundEnabled || !AudioContextClass) return false;
+        if (!audioCtx) createAudioEngine();
+        if (!audioCtx) return false;
+        if (audioCtx.state !== 'running') {
+            try {
+                await audioCtx.resume();
+            } catch (error) {
+                return false;
+            }
+        }
+        return audioCtx.state === 'running';
+    }
+
+    function canPlaySound() {
+        return !!(soundEnabled && audioCtx && audioCtx.state === 'running' && masterGain);
+    }
+
+    function connectWithOptionalPan(node, panValue) {
+        if (!canPlaySound()) return;
+        if (typeof audioCtx.createStereoPanner === 'function') {
+            const panner = audioCtx.createStereoPanner();
+            panner.pan.value = clamp(panValue || 0, -1, 1);
+            node.connect(panner);
+            panner.connect(masterGain);
+        } else {
+            node.connect(masterGain);
+        }
+    }
+
+    function scheduleTone(options) {
+        if (!canPlaySound()) return;
+
+        const now = audioCtx.currentTime + (options.timeOffset || 0);
+        const duration = options.duration || 0.08;
+        const attack = options.attack || 0.002;
+        const volume = options.volume || 0.05;
+        const sustainLevel = options.sustainLevel || 0.45;
+
+        const oscillator = audioCtx.createOscillator();
+        oscillator.type = options.type || 'square';
+        oscillator.frequency.setValueAtTime(options.freq || 440, now);
+        if (options.detune) {
+            oscillator.detune.setValueAtTime(options.detune, now);
+        }
+        if (options.slideTo) {
+            oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, options.slideTo), now + duration);
+        }
+
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(volume, now + attack);
+        gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume * sustainLevel), now + (duration * 0.45));
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        let outputNode = oscillator;
+        if (options.filterFreq) {
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = options.filterType || 'lowpass';
+            filter.frequency.setValueAtTime(options.filterFreq, now);
+            filter.Q.value = options.filterQ || 1;
+            outputNode.connect(filter);
+            outputNode = filter;
+        }
+
+        outputNode.connect(gain);
+        connectWithOptionalPan(gain, options.pan || 0);
+
+        oscillator.start(now);
+        oscillator.stop(now + duration + 0.03);
+    }
+
+    function scheduleNoise(options = {}) {
+        if (!canPlaySound() || !noiseBuffer) return;
+
+        const now = audioCtx.currentTime + (options.timeOffset || 0);
+        const duration = options.duration || 0.06;
+        const source = audioCtx.createBufferSource();
+        source.buffer = noiseBuffer;
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = options.filterType || 'bandpass';
+        filter.frequency.setValueAtTime(options.filterFreq || 1200, now);
+        filter.Q.value = options.filterQ || 1.2;
+
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(options.volume || 0.025, now + 0.002);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        source.connect(filter);
+        filter.connect(gain);
+        connectWithOptionalPan(gain, options.pan || 0);
+
+        source.start(now);
+        source.stop(now + duration + 0.03);
+    }
+
+    function soundPan(x) {
+        if (!canvas.width) return 0;
+        return clamp(((x / canvas.width) * 2) - 1, -1, 1);
+    }
+
+    function playShootSfx(targetX) {
+        const pan = soundPan(targetX);
+        scheduleTone({ type: 'square', freq: 920, slideTo: 280, volume: 0.05, duration: 0.06, pan, filterFreq: 2200 });
+        scheduleTone({ type: 'triangle', freq: 460, slideTo: 200, volume: 0.028, duration: 0.08, pan, timeOffset: 0.004, filterFreq: 1800 });
+    }
+
+    function playHitSfx(x) {
+        const pan = soundPan(x);
+        scheduleTone({ type: 'triangle', freq: 240, slideTo: 110, volume: 0.035, duration: 0.07, pan, filterFreq: 1300 });
+        scheduleNoise({ volume: 0.014, duration: 0.04, filterFreq: 1700, pan });
+    }
+
+    function playKillSfx(x) {
+        const pan = soundPan(x);
+        scheduleTone({ type: 'square', freq: 180, slideTo: 72, volume: 0.06, duration: 0.12, pan, filterFreq: 1200 });
+        scheduleTone({ type: 'triangle', freq: 360, slideTo: 140, volume: 0.03, duration: 0.1, pan, timeOffset: 0.01, filterFreq: 1400 });
+        scheduleNoise({ volume: 0.03, duration: 0.08, filterFreq: 900, pan });
+    }
+
+    function playHurtSfx() {
+        scheduleTone({ type: 'sawtooth', freq: 190, slideTo: 70, volume: 0.07, duration: 0.16, pan: 0, filterFreq: 1000 });
+        scheduleNoise({ volume: 0.04, duration: 0.09, filterFreq: 600, pan: 0 });
+    }
+
+    function playWaveSfx() {
+        const notes = [280, 360, 470];
+        notes.forEach((note, index) => {
+            scheduleTone({
+                type: 'square',
+                freq: note,
+                slideTo: note * 1.02,
+                volume: 0.04,
+                duration: 0.09,
+                pan: (index - 1) * 0.25,
+                timeOffset: index * 0.045,
+                filterFreq: 1800
+            });
+        });
+    }
+
+    function playGameOverSfx() {
+        const notes = [260, 210, 168, 132];
+        notes.forEach((note, index) => {
+            scheduleTone({
+                type: 'sawtooth',
+                freq: note,
+                slideTo: Math.max(50, note * 0.6),
+                volume: 0.05,
+                duration: 0.18,
+                pan: 0,
+                timeOffset: index * 0.08,
+                filterFreq: 900
+            });
+        });
+        scheduleNoise({ volume: 0.025, duration: 0.14, filterFreq: 500, timeOffset: 0.08, pan: 0 });
+    }
+
+    function roughCircle(x, y, r, color, fill = true) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.beginPath();
+        for (let i = 0; i <= 10; i++) {
+            const angle = (i / 10) * Math.PI * 2;
+            const rad = r + (Math.random() * 3 - 1.5);
+            const px = Math.cos(angle) * rad;
+            const py = Math.sin(angle) * rad;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = '#fff9e6';
+        ctx.lineWidth = 2.2;
+        if (fill) {
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function addExplosion(x, y, baseColor = '#ffaa88') {
+        for (let i = 0; i < 10; i++) {
+            particles.push({
+                x,
+                y,
+                vx: (Math.random() - 0.5) * 7,
+                vy: (Math.random() - 0.5) * 7,
+                life: 20 + Math.floor(Math.random() * 15),
+                color: baseColor
+            });
+        }
+    }
+
+    function spawnEnemy() {
+        const side = Math.floor(Math.random() * 4);
+        let x;
+        let y;
+        const pad = 50;
+
+        if (side === 0) {
+            x = Math.random() * canvas.width;
+            y = -pad;
+        } else if (side === 1) {
+            x = canvas.width + pad;
+            y = Math.random() * canvas.height;
+        } else if (side === 2) {
+            x = Math.random() * canvas.width;
+            y = canvas.height + pad;
+        } else {
+            x = -pad;
+            y = Math.random() * canvas.height;
+        }
+
+        const baseSpeed = 1.0 + (wave * 0.3);
+        const speed = baseSpeed + Math.random() * 0.6;
+        let health = 1;
+        let r = 16 + (wave * 1.2);
+        if (wave > 3) health = 2;
+        if (wave > 6) health = 3;
+
+        enemies.push({
+            x,
+            y,
+            r,
+            speed,
+            health,
+            color: `hsl(${(Math.random() * 20) + 320}, 80%, 60%)`
+        });
+    }
+
+    function updatePlayer() {
+        if (!gameActive) return;
+
+        let dx = 0;
+        let dy = 0;
+        if (keys.w) dy -= 1;
+        if (keys.s) dy += 1;
+        if (keys.a) dx -= 1;
+        if (keys.d) dx += 1;
+
+        if (dx !== 0 || dy !== 0) {
+            const len = Math.hypot(dx, dy);
+            dx = (dx / len) * player.speed;
+            dy = (dy / len) * player.speed;
+        }
+
+        player.x = clamp(player.x + dx, player.r + 5, canvas.width - player.r - 5);
+        player.y = clamp(player.y + dy, player.r + 5, canvas.height - player.r - 5);
+
+        if (player.invincible > 0) player.invincible--;
+    }
+
+    function updateEnemies() {
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const enemy = enemies[i];
+            const dx = player.x - enemy.x;
+            const dy = player.y - enemy.y;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist > 0.1) {
+                enemy.x += (dx / dist) * enemy.speed;
+                enemy.y += (dy / dist) * enemy.speed;
+            }
+
+            if (enemy.x < -150 || enemy.x > canvas.width + 150 || enemy.y < -150 || enemy.y > canvas.height + 150) {
+                enemies.splice(i, 1);
+                continue;
+            }
+
+            if (player.invincible <= 0 && gameActive) {
+                const collisionDistance = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+                if (collisionDistance < player.r + enemy.r) {
+                    player.health--;
+                    player.invincible = 45;
+                    addExplosion(player.x, player.y, '#ff5555');
+                    playHurtSfx();
+
+                    if (player.health <= 0) {
+                        player.health = 0;
+                        gameActive = false;
+                        gameOver = true;
+                        if (!gameOverSfxPlayed) {
+                            playGameOverSfx();
+                            gameOverSfxPlayed = true;
+                        }
+                    }
+
+                    enemy.health--;
+                    if (enemy.health <= 0) {
+                        enemies.splice(i, 1);
+                        score += 100;
+                        addExplosion(enemy.x, enemy.y, enemy.color);
+                        playKillSfx(enemy.x);
+                    }
+                    continue;
+                }
+            }
+
+            for (let j = projectiles.length - 1; j >= 0; j--) {
+                const projectile = projectiles[j];
+                const d = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
+                if (d < enemy.r + 6) {
+                    enemy.health -= projectile.damage;
+                    projectiles.splice(j, 1);
+
+                    if (enemy.health <= 0) {
+                        enemies.splice(i, 1);
+                        score += 100;
+                        addExplosion(enemy.x, enemy.y, enemy.color);
+                        playKillSfx(enemy.x);
+                        if (enemies.length === 0) {
+                            wave++;
+                            playWaveSfx();
+                            for (let s = 0; s < wave + 2; s++) spawnEnemy();
+                        }
+                        break;
+                    } else {
+                        addExplosion(enemy.x, enemy.y, '#ffffaa');
+                        playHitSfx(enemy.x);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    function shootBullet(targetX, targetY) {
+        if (!gameActive) return;
+
+        const dx = targetX - player.x;
+        const dy = targetY - player.y;
+        const len = Math.hypot(dx, dy);
+        if (len < 5) return;
+
+        const normDx = dx / len;
+        const normDy = dy / len;
+        projectiles.push({
+            x: player.x + (normDx * (player.r + 5)),
+            y: player.y + (normDy * (player.r + 5)),
+            vx: normDx * 10,
+            vy: normDy * 10,
+            damage: 1,
+            life: 100
+        });
+
+        playShootSfx(targetX);
+    }
+
+    function updateProjectiles() {
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            const projectile = projectiles[i];
+            projectile.x += projectile.vx;
+            projectile.y += projectile.vy;
+            projectile.life--;
+
+            if (
+                projectile.life <= 0 ||
+                projectile.x < -30 ||
+                projectile.x > canvas.width + 30 ||
+                projectile.y < -30 ||
+                projectile.y > canvas.height + 30
+            ) {
+                projectiles.splice(i, 1);
+            }
+        }
+    }
+
+    function updateParticles() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const particle = particles[i];
+            particle.x += particle.vx;
+            particle.y += particle.vy;
+            particle.vy += 0.1;
+            particle.life--;
+            if (particle.life <= 0) particles.splice(i, 1);
+        }
+    }
+
+    function manageWaves() {
+        if (!gameActive) return;
+        if (enemies.length === 0) {
+            wave++;
+            playWaveSfx();
+            for (let i = 0; i < wave + 2; i++) spawnEnemy();
+            if (player.health < player.maxHealth) {
+                player.health = Math.min(player.health + 1, player.maxHealth);
+            }
+        }
+    }
+
+    function drawGameOver() {
+        if (!gameOver) return;
+
+        const titleSize = clamp(Math.floor(canvas.width * 0.08), 26, 48);
+        const promptSize = clamp(Math.floor(canvas.width * 0.036), 16, 24);
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ffcd94';
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = 'red';
+        ctx.font = `bold ${titleSize}px "Space Grotesk", monospace`;
+        ctx.fillText('✖ GAME OVER ✖', canvas.width / 2, canvas.height / 2 - (titleSize * 0.45));
+        ctx.font = `${promptSize}px monospace`;
+        ctx.fillText('PRESS R TO RESTART', canvas.width / 2, canvas.height / 2 + (promptSize * 1.6));
+        ctx.restore();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.strokeStyle = '#f4326f20';
+        ctx.lineWidth = 1;
+        const step = 60;
+        for (let i = 0; i < canvas.width; i += step) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, canvas.height);
+            ctx.stroke();
+        }
+        for (let i = 0; i < canvas.height; i += step) {
+            ctx.beginPath();
+            ctx.moveTo(0, i);
+            ctx.lineTo(canvas.width, i);
+            ctx.stroke();
+        }
+
+        if (gameActive || gameOver) {
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            if (player.invincible > 0 && (frame % 8 < 4)) ctx.globalAlpha = 0.6;
+            ctx.beginPath();
+            for (let i = 0; i < 5; i++) {
+                const angle = i * (Math.PI * 2 / 5) - Math.PI / 2;
+                const rad = player.r + (Math.random() * 2 - 1);
+                const px = Math.cos(angle) * rad;
+                const py = Math.sin(angle) * rad;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fillStyle = '#b3ffc6';
+            ctx.shadowColor = '#ffb3f0';
+            ctx.shadowBlur = 20;
+            ctx.fill();
+            ctx.strokeStyle = '#f9ffb0';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#22001e';
+            ctx.beginPath();
+            ctx.arc(-7, -6, 4, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(7, -6, 4, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        enemies.forEach((enemy) => roughCircle(enemy.x, enemy.y, enemy.r, enemy.color, true));
+
+        ctx.shadowBlur = 16;
+        ctx.shadowColor = 'cyan';
+        ctx.fillStyle = '#fffdde';
+        projectiles.forEach((projectile) => {
+            ctx.beginPath();
+            ctx.arc(projectile.x, projectile.y, 6, 0, 2 * Math.PI);
+            ctx.fill();
+        });
+        ctx.shadowBlur = 0;
+
+        particles.forEach((particle) => {
+            ctx.fillStyle = particle.color;
+            ctx.beginPath();
+            ctx.arc(particle.x, particle.y, 4, 0, 2 * Math.PI);
+            ctx.fill();
+        });
+
+        drawGameOver();
+
+        scoreEl.textContent = String(score);
+        waveEl.textContent = String(wave);
+        hpEl.textContent = String(player.health);
+    }
+
+    function gameLoop() {
+        if (!gameOver) {
+            updatePlayer();
+            updateProjectiles();
+            updateEnemies();
+            updateParticles();
+
+            if (frame % 80 === 0 && enemies.length < wave + 10 && gameActive) {
+                spawnEnemy();
+            }
+
+            if (enemies.length === 0 && gameActive) {
+                manageWaves();
+            }
+        }
+
+        draw();
+        frame++;
+        animationFrame = requestAnimationFrame(gameLoop);
+    }
+
+    function restartGame() {
+        player.x = canvas.width / 2;
+        player.y = canvas.height / 2;
+        player.health = player.maxHealth;
+        player.invincible = 0;
+        enemies = [];
+        projectiles = [];
+        particles = [];
+        score = 0;
+        wave = 1;
+        frame = 0;
+        gameActive = true;
+        gameOver = false;
+        gameOverSfxPlayed = false;
+        mouse.x = player.x;
+        mouse.y = player.y;
+        mouse.pressed = false;
+        activeFirePointerId = null;
+        spawnEnemy();
+    }
+
+    window.addEventListener('keydown', (event) => {
+        const key = event.key.toLowerCase();
+        if (key === 'w') keys.w = true;
+        if (key === 'a') keys.a = true;
+        if (key === 's') keys.s = true;
+        if (key === 'd') keys.d = true;
+        if (key === 'r' && gameOver) {
+            restartGame();
+        }
+    });
+
+    window.addEventListener('keyup', (event) => {
+        const key = event.key.toLowerCase();
+        if (key === 'w') keys.w = false;
+        if (key === 'a') keys.a = false;
+        if (key === 's') keys.s = false;
+        if (key === 'd') keys.d = false;
+    });
+
+    window.addEventListener('blur', () => {
+        keys.w = false;
+        keys.a = false;
+        keys.s = false;
+        keys.d = false;
+        mouse.pressed = false;
+        activeFirePointerId = null;
+    });
+
+    function handleMove(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const canvasX = (clientX - rect.left) * scaleX;
+        const canvasY = (clientY - rect.top) * scaleY;
+        mouse.x = clamp(canvasX, 0, canvas.width);
+        mouse.y = clamp(canvasY, 0, canvas.height);
+    }
+
+    canvas.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+    });
+
+    canvas.addEventListener('pointermove', (event) => {
+        handleMove(event.clientX, event.clientY);
+    });
+
+    canvas.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        event.preventDefault();
+        ensureAudioReady();
+        activeFirePointerId = event.pointerId;
+        if (canvas.setPointerCapture) {
+            try {
+                canvas.setPointerCapture(event.pointerId);
+            } catch (error) {
+                // no-op
+            }
+        }
+        mouse.pressed = true;
+        handleMove(event.clientX, event.clientY);
+        shootBullet(mouse.x, mouse.y);
+        try {
+            canvas.focus({ preventScroll: true });
+        } catch (error) {
+            canvas.focus();
+        }
+    });
+
+    function releasePointer(event) {
+        if (activeFirePointerId === null) return;
+        if (event.pointerId !== activeFirePointerId && event.pointerType !== 'mouse') return;
+        mouse.pressed = false;
+        if (canvas.releasePointerCapture && activeFirePointerId !== null) {
+            try {
+                canvas.releasePointerCapture(activeFirePointerId);
+            } catch (error) {
+                // no-op
+            }
+        }
+        activeFirePointerId = null;
+    }
+
+    canvas.addEventListener('pointerup', releasePointer);
+    canvas.addEventListener('pointercancel', releasePointer);
+    canvas.addEventListener('lostpointercapture', () => {
+        mouse.pressed = false;
+        activeFirePointerId = null;
+    });
+    window.addEventListener('pointerup', releasePointer);
+    window.addEventListener('pointercancel', releasePointer);
+
+    if (soundToggle) {
+        soundToggle.addEventListener('click', async (event) => {
+            event.preventDefault();
+            if (!AudioContextClass) {
+                updateSoundToggle();
+                return;
+            }
+            soundEnabled = !soundEnabled;
+            if (soundEnabled) {
+                createAudioEngine();
+                await ensureAudioReady();
+                updateSoundToggle();
+                if (canPlaySound()) {
+                    scheduleTone({ type: 'square', freq: 540, slideTo: 820, volume: 0.045, duration: 0.08, filterFreq: 2200 });
+                }
+            } else {
+                if (audioCtx && audioCtx.state === 'running') {
+                    try {
+                        await audioCtx.suspend();
+                    } catch (error) {
+                        // no-op
+                    }
+                }
+                updateSoundToggle();
+            }
+        });
+    }
+
+    fireInterval = window.setInterval(() => {
+        if (mouse.pressed && gameActive && !gameOver) {
+            shootBullet(mouse.x, mouse.y);
+        }
+    }, 140);
+
+    spawnEnemy();
+    gameLoop();
+
+    window.addEventListener('beforeunload', () => {
+        if (animationFrame) cancelAnimationFrame(animationFrame);
+        if (fireInterval) clearInterval(fireInterval);
+        if (window.visualViewport) {
+            window.visualViewport.removeEventListener('resize', resizeCanvas);
+        }
+    });
+})();
+</script>
+</body>
+</html>
